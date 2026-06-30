@@ -7,6 +7,7 @@
                 <el-button type="primary" :icon="VideoPlay" @click="start()">{{ textShow($t('start')) }}</el-button>
                 <el-button type="primary" :icon="VideoPause" @click="stop()">{{ textShow($t('stop')) }}</el-button>
                 <el-button type="primary" :icon="RefreshRight" @click="restart()">{{ textShow($t('restart')) }}</el-button>
+                <el-button type="primary" :icon="Setting" @click="openRegisterConfig()">{{ textShow($t('signup.config')) }}</el-button>
             </el-button-group>
         </el-form-item>
         <el-form-item :label="$t('type')">
@@ -44,14 +45,32 @@
         </el-form-item>
     </el-form>
     <textarea id="logshow" readonly="readonly" class="el-textarea__inner"></textarea>
+
+    <el-dialog v-model="registerVisible" :title="$t('signup.config')" :width="dialogWidth">
+        <el-form label-width="100px">
+            <el-form-item :label="$t('signup.enable')">
+                <el-switch v-model="registerConfig.enabled"></el-switch>
+            </el-form-item>
+            <el-form-item :label="$t('signup.code')">
+                <el-input v-model="registerConfig.code" :placeholder="$t('signup.inputCode')" clearable></el-input>
+            </el-form-item>
+            <div class="register-tip">{{ $t('signup.tip') }}</div>
+        </el-form>
+        <template #footer>
+            <span class="dialog-footer">
+                <el-button @click="registerVisible = false">{{ $t('cancel') }}</el-button>
+                <el-button type="primary" @click="saveRegisterConfig()">{{ $t('ok') }}</el-button>
+            </span>
+        </template>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import store from '@/store/index.js'
 import { mapState } from 'vuex'
-import { version } from '@/api/common'
-import { Refresh, VideoPlay, VideoPause, RefreshRight } from '@element-plus/icons-vue'
+import { version, getRegisterConfig, setRegisterConfig } from '@/api/common'
+import { Refresh, VideoPlay, VideoPause, RefreshRight, Setting } from '@element-plus/icons-vue'
 import { start, stop, restart, update, getLoglevel, setLoglevel, trojanSwitch } from '@/api/trojan'
 export default {
     setup() {
@@ -59,7 +78,8 @@ export default {
             Refresh,
             VideoPlay,
             VideoPause,
-            RefreshRight
+            RefreshRight,
+            Setting
         }
     },
     data() {
@@ -69,6 +89,11 @@ export default {
             ws: null,
             scrollHeight: 0,
             fontSize: 13,
+            registerVisible: false,
+            registerConfig: {
+                enabled: false,
+                code: ''
+            },
             mainStyle: {
                 height: 0
             },
@@ -290,6 +315,35 @@ export default {
                 })
             }
         },
+        async openRegisterConfig() {
+            const result = await getRegisterConfig()
+            if (result.Msg === 'success') {
+                this.registerConfig.enabled = result.Data.enabled
+                this.registerConfig.code = result.Data.code
+                this.registerVisible = true
+            } else {
+                this.$message.error(result.Msg)
+            }
+        },
+        async saveRegisterConfig() {
+            if (this.registerConfig.enabled && !this.registerConfig.code) {
+                this.$message.error(this.$t('signup.codeRequired'))
+                return
+            }
+            const formData = new FormData()
+            formData.set('enabled', this.registerConfig.enabled)
+            formData.set('code', this.registerConfig.code)
+            const result = await setRegisterConfig(formData)
+            if (result.Msg === 'success') {
+                this.$message({
+                    message: this.$t('signup.configSuccess'),
+                    type: 'success'
+                })
+                this.registerVisible = false
+            } else {
+                this.$message.error(result.Msg)
+            }
+        },
         getLog() {
             this.isFollow = true
             if (this.ws != null) {
@@ -352,5 +406,12 @@ export default {
     color:white;
     font-size: 13px;
     cursor: auto;
+}
+
+.register-tip {
+    color: #909399;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 0 10px;
 }
 </style>

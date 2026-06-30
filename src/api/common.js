@@ -23,3 +23,11 @@ export function getClashRules() {
 export function resetClashRules() {
     return request.delete('/common/clashRules')
 }
+
+export function getRegisterConfig() {
+    return request.get('/common/registerConfig')
+}
+
+export function setRegisterConfig(data) {
+    return request.post('/common/registerConfig', data)
+}

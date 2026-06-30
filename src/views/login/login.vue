@@ -46,6 +46,9 @@
       </el-tooltip>
 
       <el-button :loading="loading" type="primary" style="width:100%;margin-bottom:30px;" @click.prevent="handleLogin">{{ $t('login') }}</el-button>
+      <div class="signup-entry" v-if="showSignup">
+        <router-link to="/signup">{{ $t('signup.entry') }}</router-link>
+      </div>
     </el-form>
   </div>
 </template>
@@ -53,7 +56,7 @@
 <script>
 import { mapState } from 'vuex'
 import CryptoJS from 'crypto-js'
-import { check, login } from '@/api/permission'
+import { check, login, registerStatus } from '@/api/permission'
 export default {
     data() {
         return {
@@ -64,7 +67,8 @@ export default {
             loading: false,
             capsTooltip: false,
             passwordType: 'password',
-            title: ''
+            title: '',
+            showSignup: false
         }
     },
     created() {
@@ -77,6 +81,9 @@ export default {
                 document.title = this.title
                 this.$store.commit('SET_TITLE', this.title)
             }
+        })
+        registerStatus().then((res) => {
+            this.showSignup = !!(res.Data && res.Data.enabled)
         })
     },
     computed: {
@@ -213,6 +220,15 @@ $light_gray:#eee;
     color: $dark_gray;
     cursor: pointer;
     user-select: none;
+  }
+
+  .signup-entry {
+    text-align: center;
+
+    a {
+      color: $light_gray;
+      font-size: 14px;
+    }
   }
 }
 </style>

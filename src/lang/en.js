@@ -8,6 +8,38 @@ export default {
     passDifferentError: 'The two inputs are inconsistent!',
     setupPass: 'setup admin password',
     inputNotNull: "username or password can't be null!",
+    download: {
+        entry: 'Download Client',
+        title: 'Download Proxy Client',
+        goDownload: 'Download',
+        afterInstall: 'Import subscription after install',
+        subscribeTip: 'Copy the subscription URL below and add it in your client',
+        copy: 'Copy',
+        copySuccess: 'Copied to clipboard',
+        desc: {
+            clashVerge: 'Cross-platform Clash client, supports trojan, recommended',
+            v2rayN: 'Classic multi-protocol client for Windows',
+            clashxMeta: 'Clash Meta client for macOS',
+            clashMetaAndroid: 'Clash Meta client for Android',
+            v2rayNG: 'Multi-protocol client for Android',
+            shadowrocket: 'Paid iOS client (Shadowrocket)',
+            stash: 'Clash-core client for iOS'
+        }
+    },
+    signup: {
+        title: 'Sign Up',
+        entry: "No account? Sign up",
+        backLogin: 'Have an account? Login',
+        inputCode: 'input invite code',
+        closed: 'self sign up is not open',
+        success: 'sign up success, please login',
+        config: 'Sign Up Setting',
+        enable: 'Enable Sign Up',
+        code: 'Invite Code',
+        codeRequired: 'invite code is required when sign up is enabled',
+        configSuccess: 'save sign up setting success!',
+        tip: 'When enabled, visitors can self-register a trojan user with the invite code on the login page. Disable it or clear the code to stop.'
+    },
     route: {
         dashboard: 'Dashboard',
         trojan: 'Trojan',

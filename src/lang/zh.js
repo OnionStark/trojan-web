@@ -29,6 +29,38 @@ export default {
     passDifferentError: '两次输入不一致!',
     setupPass: '设置admin密码',
     inputNotNull: '用户名或密码不能为空!',
+    download: {
+        entry: '下载客户端',
+        title: '下载代理客户端',
+        goDownload: '下载',
+        afterInstall: '安装后导入订阅',
+        subscribeTip: '复制下方订阅链接, 在客户端中添加订阅即可使用',
+        copy: '复制',
+        copySuccess: '已复制到剪贴板',
+        desc: {
+            clashVerge: '跨平台 Clash 客户端, 支持 trojan, 推荐',
+            v2rayN: 'Windows 经典多协议客户端',
+            clashxMeta: 'macOS 上的 Clash Meta 客户端',
+            clashMetaAndroid: 'Android 上的 Clash Meta 客户端',
+            v2rayNG: 'Android 多协议客户端',
+            shadowrocket: 'iOS 付费客户端 (小火箭)',
+            stash: 'iOS 上的 Clash 内核客户端'
+        }
+    },
+    signup: {
+        title: '注册账号',
+        entry: '没有账号? 去注册',
+        backLogin: '已有账号? 去登录',
+        inputCode: '请输入邀请码',
+        closed: '自助注册未开放',
+        success: '注册成功, 请登录',
+        config: '注册设置',
+        enable: '开放注册',
+        code: '邀请码',
+        codeRequired: '开放注册时必须设置邀请码',
+        configSuccess: '保存注册设置成功!',
+        tip: '开放后, 访客可在登录页用邀请码自助注册trojan用户。关闭或清空邀请码即停止开放。'
+    },
     route: {
         dashboard: '首页',
         trojan: 'trojan管理',

@@ -4,9 +4,17 @@ import request from '@/utils/request'
 export function login(data) {
     return request.post('/auth/login', data)
 }
-// 注册接口
+// 注册接口(首次初始化admin)
 export function register(data) {
     return request.post('/auth/register', data)
+}
+// 访客自助注册trojan用户
+export function signup(data) {
+    return request.post('/auth/signup', data)
+}
+// 查询自助注册是否开放(公开)
+export function registerStatus() {
+    return request.get('/auth/registerStatus')
 }
 // 检查有没有初始化接口
 export function check() {

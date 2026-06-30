@@ -10,6 +10,9 @@
             <el-button type="danger" :icon="Delete" @click="copySelection=multipleSelection;patchButton=true;commonType=0;confirmVisible=true" v-if="isAdmin">{{ textShow($t('delete')) }}</el-button>
         </el-button-group>
     </el-form-item>
+    <el-form-item>
+        <el-button type="success" :icon="Download" @click="openDownload()">{{ textShow($t('download.entry')) }}</el-button>
+    </el-form-item>
     </el-form>
     <el-table
     :data="dataList.filter(data => !search || data.Username.toLowerCase().includes(search.toLowerCase()))" :height="clientHeight" @selection-change="handleSelectionChange" class="tableShow">
@@ -143,6 +146,28 @@
         <div id="qrcode" ref="qrcode" class="qrcodeCenter"></div>
         <p class="qrcodeCenter"> {{ shareLink }} </p>
     </el-dialog>
+    <el-dialog :title="$t('download.title')" v-model="downloadVisible" :width="dialogWidth">
+        <el-radio-group v-model="curPlatform" size="small" style="margin-bottom: 15px;">
+            <el-radio-button v-for="p in platformList" :key="p" :label="p">{{ platformLabels[p] }}</el-radio-button>
+        </el-radio-group>
+        <div v-for="item in clientData[curPlatform]" :key="item.key" class="client-card">
+            <div class="client-info">
+                <div class="client-name">{{ item.name }}</div>
+                <div class="client-desc">{{ $t('download.desc.' + item.key) }}</div>
+            </div>
+            <el-button type="primary" size="small" @click="goDownload(item.url)">{{ $t('download.goDownload') }}</el-button>
+        </div>
+        <div v-if="subscribeUrl" class="subscribe-box">
+            <el-divider>{{ $t('download.afterInstall') }}</el-divider>
+            <div class="subscribe-tip">{{ $t('download.subscribeTip') }}</div>
+            <el-input v-model="subscribeUrl" readonly size="small">
+                <template #append>
+                    <el-button @click="copySubscribe()">{{ $t('download.copy') }}</el-button>
+                </template>
+            </el-input>
+            <el-button type="primary" size="small" style="margin-top: 10px;" @click="importClashFromDownload()">{{ $t('user.importClash') }}</el-button>
+        </div>
+    </el-dialog>
     <el-dialog :title="expiryShow" v-model="expiryVisible" :width="dialogWidth">
         <el-form>
             <el-form-item :label="$t('user.preset')">
@@ -171,10 +196,11 @@
 
 <script>
 import { userList, addUser, delUser, updateUser, setExpire, cancelExpire } from '@/api/user'
-import { Refresh, Plus, RefreshLeft, Scissor, Delete } from '@element-plus/icons-vue'
+import { Refresh, Plus, RefreshLeft, Scissor, Delete, Download } from '@element-plus/icons-vue'
 import { setQuota, cleanData } from '@/api/data'
 import { setDomain, restart } from '@/api/trojan'
 import { readablizeBytes, isValidIP, base64Encode, base64Decode } from '@/utils/common'
+import { clients, platformList, platformLabels, detectPlatform } from '@/utils/clients'
 import { mapState } from 'vuex'
 import * as QRCode from 'easyqrcodejs'   
 import dayjs from 'dayjs'
@@ -186,7 +212,8 @@ export default {
             Plus,
             RefreshLeft,
             Scissor,
-            Delete
+            Delete,
+            Download
         }
     },
     data() {
@@ -204,6 +231,11 @@ export default {
             quotaVisible: false,
             qrcodeVisible: false,
             expiryVisible: false,
+            downloadVisible: false,
+            curPlatform: detectPlatform(),
+            clientData: clients,
+            platformList: platformList,
+            platformLabels: platformLabels,
             expiryShow: '',
             patchButton: false,
             // 确认框类型: 0 删除, 1 重置流量, 2 新增用户, 3 修改用户, 4 trojan链接, 5 clash链接
@@ -250,6 +282,16 @@ export default {
     },
     computed: {
         ...mapState(['dialogWidth', 'isAdmin']),
+        subscribeUrl: function() {
+            // 仅对普通用户(非admin)展示其本人的clash订阅链接
+            if (this.isAdmin || this.dataList.length === 0) {
+                return ''
+            }
+            const u = this.dataList[0]
+            const userInfo = base64Encode(`{"user": "${u.Username}", "pass": "${base64Decode(u.Password)}"}`)
+            const protocol = window.location.hostname === '127.0.0.1' ? 'https:' : window.location.protocol
+            return `${protocol}//${this.domain}:${this.port}/trojan/user/subscribe?token=${userInfo}`
+        },
         commonTitle: function() {
             let text = ''
             if (this.commonType === 4) {
@@ -360,6 +402,37 @@ export default {
         handleClash() {
             let userInfo = base64Encode(`{"user": "${this.userItem.Username}", "pass": "${base64Decode(this.userItem.Password)}"}`)
             let url = `${window.location.origin}/trojan/user/subscribe?token=${userInfo}`
+            window.location.href = `clash://install-config?url=${url}`
+        },
+        openDownload() {
+            this.curPlatform = detectPlatform()
+            this.downloadVisible = true
+        },
+        goDownload(url) {
+            window.open(url, '_blank')
+        },
+        copySubscribe() {
+            const text = this.subscribeUrl
+            const done = () => this.$message({ message: this.$t('download.copySuccess'), type: 'success' })
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(() => {})
+            } else {
+                const input = document.createElement('textarea')
+                input.value = text
+                document.body.appendChild(input)
+                input.select()
+                document.execCommand('copy')
+                document.body.removeChild(input)
+                done()
+            }
+        },
+        importClashFromDownload() {
+            if (this.dataList.length === 0) {
+                return
+            }
+            const u = this.dataList[0]
+            const userInfo = base64Encode(`{"user": "${u.Username}", "pass": "${base64Decode(u.Password)}"}`)
+            const url = `${window.location.origin}/trojan/user/subscribe?token=${userInfo}`
             window.location.href = `clash://install-config?url=${url}`
         },
         handelEditUser() {
@@ -626,5 +699,30 @@ export default {
             display: inline;
         }
     }
+}
+.client-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--el-border-color, #dcdfe6);
+    border-radius: 6px;
+}
+.client-card .client-name {
+    font-weight: bold;
+}
+.client-card .client-desc {
+    font-size: 12px;
+    color: #909399;
+    margin-top: 2px;
+}
+.subscribe-box {
+    margin-top: 10px;
+}
+.subscribe-box .subscribe-tip {
+    font-size: 12px;
+    color: #909399;
+    margin-bottom: 8px;
 }
 </style>

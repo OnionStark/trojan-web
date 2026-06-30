@@ -6,7 +6,7 @@ import externalGlobals from 'rollup-plugin-external-globals'
 
 export default defineConfig(({ command }) => {
 
-    const proxyTarget = 'http://xxooo.online'
+    const proxyTarget = 'http://127.0.0.1:8080'
 
     let vueI18n = {}
 
