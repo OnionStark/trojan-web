@@ -285,7 +285,7 @@
 import { userList, addUser, delUser, updateUser, setExpire, cancelExpire } from '@/api/user'
 import { Refresh, Plus, RefreshLeft, Scissor, Delete, Download } from '@element-plus/icons-vue'
 import { setQuota, cleanData } from '@/api/data'
-import { setDomain, restart, saveNodes } from '@/api/trojan'
+import { setDomain, saveNodes } from '@/api/trojan'
 import { readablizeBytes, isValidIP, base64Encode, base64Decode } from '@/utils/common'
 import { clients, platformList, platformLabels, detectPlatform } from '@/utils/clients'
 import { mapState } from 'vuex'
@@ -585,7 +585,7 @@ export default {
             if (failed.length === 0) {
                 return
             }
-            this.$message.warning(failed.map(item => `${item.name}: ${item.msg}`).join('；'))
+            this.$message.warning(`${this.$t('node.syncSaved')}${failed.map(item => `${item.name}: ${item.msg}`).join('；')}`)
         },
         copyText(text) {
             if (!text) {
@@ -923,12 +923,6 @@ export default {
                     message: `${this.$t('user.modifyUser2')}${this.userInfo.username}${this.$t('user.success')}`,
                     type: 'success'
                 })
-                this.$store.commit('SET_NOERROR', true)
-                try {
-                    await restart().catch()
-                } catch(e) {
-                    this.$store.commit('SET_NOERROR', false)
-                }
             } else {
                 this.$message.error(result.Msg)
             }
