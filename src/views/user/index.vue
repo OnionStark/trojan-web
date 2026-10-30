@@ -4,7 +4,7 @@
     <el-form-item>
         <el-button-group>
             <el-button type="primary" :icon="Refresh" @click="refresh()">{{ textShow($t('refresh')) }}</el-button>
-            <el-button type="primary" :icon="Plus" @click="commonType=2;userInfo.username='';userInfo.password='';userVisible=true" v-if="isAdmin">{{ textShow($t('add')) }}</el-button>
+            <el-button type="primary" :icon="Plus" @click="openAddUser()" v-if="isAdmin">{{ textShow($t('add')) }}</el-button>
             <el-button type="primary" :icon="RefreshLeft" @click="copySelection=multipleSelection;patchButton=true;commonType=1;confirmVisible=true" v-if="isAdmin">{{ textShow($t('user.reset')) }}</el-button>
             <el-button type="primary" :icon="Scissor" @click="copySelection=multipleSelection;patchButton=true;quotaVisible=true" v-if="isAdmin">{{ textShow($t('user.limitData')) }}</el-button>
             <el-button type="danger" :icon="Delete" @click="copySelection=multipleSelection;patchButton=true;commonType=0;confirmVisible=true" v-if="isAdmin">{{ textShow($t('delete')) }}</el-button>
@@ -14,6 +14,35 @@
         <el-button type="success" :icon="Download" @click="openDownload()">{{ textShow($t('download.entry')) }}</el-button>
     </el-form-item>
     </el-form>
+    <el-card v-if="isAdmin" shadow="hover" class="node-card">
+        <div class="node-card-head">
+            <span>{{ $t('node.title') }}</span>
+            <el-button type="primary" size="small" @click="openNodeEdit()">{{ $t('node.add') }}</el-button>
+        </div>
+        <el-table :data="nodes" size="small">
+            <el-table-column prop="name" :label="$t('node.name')" min-width="100"></el-table-column>
+            <el-table-column :label="$t('node.server')" min-width="160">
+                <template #default="scope">{{ scope.row.server }}:{{ scope.row.port }}</template>
+            </el-table-column>
+            <el-table-column prop="panelUrl" :label="$t('node.panel')" min-width="180"></el-table-column>
+            <el-table-column :label="$t('node.kind')" width="90">
+                <template #default="scope">
+                    <el-tag v-if="scope.row.local" size="small">{{ $t('node.local') }}</el-tag>
+                    <el-tag v-else size="small" type="success">{{ $t('node.remote') }}</el-tag>
+                </template>
+            </el-table-column>
+            <el-table-column width="140" align="center">
+                <template #default="scope">
+                    <el-button type="primary" link @click="openNodeEdit(scope.row)">{{ $t('edit') }}</el-button>
+                    <el-button v-if="!scope.row.local" type="danger" link @click="removeNode(scope.row)">{{ $t('delete') }}</el-button>
+                </template>
+            </el-table-column>
+        </el-table>
+    </el-card>
+    <div v-else-if="myNodes.length" class="node-mine">
+        {{ $t('node.mine') }}:
+        <el-tag v-for="n in myNodes" :key="n.id" size="small" class="node-tag">{{ n.name }}</el-tag>
+    </div>
     <el-table
     :data="dataList.filter(data => !search || data.Username.toLowerCase().includes(search.toLowerCase()))" :height="clientHeight" @selection-change="handleSelectionChange" class="tableShow">
         <el-table-column
@@ -57,6 +86,13 @@
                 </div>
             </template>
             </el-popover>
+        </template>
+        </el-table-column>
+        <el-table-column
+        :label="$t('node.assign')"
+        min-width="140">
+        <template #default="scope">
+            <el-tag v-for="n in nodesOf(scope.row)" :key="n.id" size="small" class="node-tag">{{ n.name }}</el-tag>
         </template>
         </el-table-column>
         <el-table-column
@@ -107,6 +143,13 @@
     <el-dialog :title="commonTitle"  v-model="userVisible" :width="dialogWidth">
         <el-input type="text" v-model="userInfo.username" :placeholder="$root.$t('user.inputUsername')" @keyup.enter="commonType === 2? handleAddUser(): handleUpdateUser()"/>
         <el-input type="text" v-model="userInfo.password" :placeholder="$root.$t('user.inputPassword')" @keyup.enter="commonType === 2? handleAddUser(): handleUpdateUser()"/>
+        <div v-if="isAdmin" class="node-assign">
+            <div class="node-assign-label">{{ $t('node.assign') }}</div>
+            <el-checkbox-group v-model="userInfo.nodeIds">
+                <el-checkbox v-for="n in nodes" :key="n.id" :label="n.id">{{ n.name }} ({{ n.server }}:{{ n.port }})</el-checkbox>
+            </el-checkbox-group>
+            <div class="node-tip">{{ $t('node.syncTip') }}</div>
+        </div>
         <template #footer>
             <el-button @click="userVisible = false">{{ $root.$t('cancel') }}</el-button>
             <el-button type="primary" @click="commonType === 2? handleAddUser(): handleUpdateUser()">{{ $root.$t('ok') }}</el-button>
@@ -142,9 +185,23 @@
             </span>
         </template>
     </el-dialog>
-    <el-dialog :title="commonTitle" v-model="qrcodeVisible" :width="dialogWidth" @close="closeQRCode">
+    <el-dialog :title="commonTitle" v-model="qrcodeVisible" :width="shareDialogWidth" @close="closeQRCode">
+        <div v-if="commonType === 4 && shareNodeList.length > 1" class="share-switch">
+            <span>{{ $t('node.switchNode') }}</span>
+            <el-select v-model="shareNodeId" style="width: 220px; margin-left: 8px" @change="onShareNodeChange">
+                <el-option v-for="n in shareNodeList" :key="n.id" :label="n.name" :value="n.id"></el-option>
+            </el-select>
+        </div>
         <div id="qrcode" ref="qrcode" class="qrcodeCenter"></div>
         <p class="qrcodeCenter"> {{ shareLink }} </p>
+        <div class="share-actions">
+            <el-button size="small" @click="copyText(shareLink)">{{ commonType === 4 ? $t('node.copyOne') : $t('download.copy') }}</el-button>
+            <el-button v-if="commonType === 4 && shareNodeList.length > 1" size="small" @click="copyText(allTrojanLinks)">{{ $t('node.copyAll') }}</el-button>
+        </div>
+        <div v-if="shareNodeList.length" class="share-nodes">
+            <div class="node-tip">{{ commonType === 4 ? $t('node.allLinks') : $t('node.included') }}</div>
+            <div v-for="n in shareNodeList" :key="n.id" class="share-node-line">{{ n.name }} · {{ n.server }}:{{ n.port }}</div>
+        </div>
     </el-dialog>
     <el-dialog :title="$t('download.title')" v-model="downloadVisible" :width="dialogWidth">
         <el-radio-group v-model="curPlatform" size="small" style="margin-bottom: 15px;">
@@ -190,6 +247,36 @@
                 <el-button type="primary" @click="expiryVisible=false; setUserExpire()">{{ $root.$t('ok') }}</el-button>
             </span>
         </template>
+        </el-dialog>
+    <el-dialog :title="nodeForm.id ? $t('node.edit') : $t('node.add')" v-model="nodeVisible" :width="shareDialogWidth">
+        <el-form label-width="110px">
+            <el-form-item :label="$t('node.name')">
+                <el-input v-model="nodeForm.name"></el-input>
+            </el-form-item>
+            <el-form-item :label="$t('node.server')">
+                <el-input v-model="nodeForm.server" :disabled="nodeForm.local"></el-input>
+            </el-form-item>
+            <el-form-item :label="$t('node.port')">
+                <el-input-number v-model="nodeForm.port" :min="1" :max="65535" :disabled="nodeForm.local"></el-input-number>
+            </el-form-item>
+            <el-form-item :label="$t('node.sni')">
+                <el-input v-model="nodeForm.sni" :disabled="nodeForm.local" :placeholder="$t('node.sniHolder')"></el-input>
+            </el-form-item>
+            <template v-if="!nodeForm.local">
+                <el-form-item :label="$t('node.panel')">
+                    <el-input v-model="nodeForm.panelUrl" placeholder="https://example.com"></el-input>
+                </el-form-item>
+                <el-form-item :label="$t('node.adminPass')">
+                    <el-input v-model="nodeForm.adminPass" type="password" show-password :placeholder="nodeForm.hasPassword ? $t('node.passKeep') : ''"></el-input>
+                </el-form-item>
+                <div class="node-tip">{{ $t('node.remoteTip') }}</div>
+            </template>
+            <div v-else class="node-tip">{{ $t('node.localTip') }}</div>
+        </el-form>
+        <template #footer>
+            <el-button @click="nodeVisible = false">{{ $t('cancel') }}</el-button>
+            <el-button type="primary" :loading="nodeSaving" @click="saveNodeForm()">{{ $t('ok') }}</el-button>
+        </template>
     </el-dialog>
   </div>
 </template>
@@ -198,12 +285,14 @@
 import { userList, addUser, delUser, updateUser, setExpire, cancelExpire } from '@/api/user'
 import { Refresh, Plus, RefreshLeft, Scissor, Delete, Download } from '@element-plus/icons-vue'
 import { setQuota, cleanData } from '@/api/data'
-import { setDomain, restart } from '@/api/trojan'
+import { setDomain, restart, saveNodes } from '@/api/trojan'
 import { readablizeBytes, isValidIP, base64Encode, base64Decode } from '@/utils/common'
 import { clients, platformList, platformLabels, detectPlatform } from '@/utils/clients'
 import { mapState } from 'vuex'
-import * as QRCode from 'easyqrcodejs'   
+import * as QRCode from 'easyqrcodejs'
 import dayjs from 'dayjs'
+import CryptoJS from 'crypto-js'
+import { ElMessageBox } from 'element-plus'
 
 export default {
     setup() {
@@ -222,6 +311,22 @@ export default {
             domain: '',
             port: 0,
             shareLink: '',
+            nodes: [],
+            shareNodeList: [],
+            shareNodeId: '',
+            nodeVisible: false,
+            nodeSaving: false,
+            nodeForm: {
+                id: '',
+                name: '',
+                server: '',
+                port: 443,
+                sni: '',
+                panelUrl: '',
+                adminPass: '',
+                local: false,
+                hasPassword: false
+            },
             dataList: [],
             multipleSelection: [],
             copySelection: [],
@@ -276,12 +381,25 @@ export default {
             ],
             userInfo: {
                 username: '',
-                password: ''
+                password: '',
+                nodeIds: []
             }
         }
     },
     computed: {
         ...mapState(['dialogWidth', 'isAdmin']),
+        shareDialogWidth: function() {
+            return this.dialogWidth === '25%' ? '560px' : this.dialogWidth
+        },
+        myNodes: function() {
+            if (this.isAdmin || this.dataList.length === 0) {
+                return []
+            }
+            return this.nodesOf(this.dataList[0])
+        },
+        allTrojanLinks: function() {
+            return this.shareNodeList.map(n => this.trojanURL(n)).join('\n')
+        },
         subscribeUrl: function() {
             // 仅对普通用户(非admin)展示其本人的clash订阅链接
             if (this.isAdmin || this.dataList.length === 0) {
@@ -381,23 +499,215 @@ export default {
             return (a.Download + a.Upload) - (b.Download + b.Upload)
         },
         handleShare() {
+            this.shareNodeList = this.nodesOf(this.userItem)
+            this.shareNodeId = this.shareNodeList.length ? this.shareNodeList[0].id : ''
             if (this.commonType === 4) {
-                let remark = encodeURIComponent(`${this.domain}:${this.port}`)
-                this.shareLink = `trojan://${base64Decode(this.userItem.Password)}@${this.domain}:${this.port}#${remark}`
+                this.shareLink = this.shareNodeList.length ? this.trojanURL(this.shareNodeList[0]) : ''
             } else if (this.commonType === 5) {
-                let userInfo = base64Encode(`{"user": "${this.userItem.Username}", "pass": "${base64Decode(this.userItem.Password)}"}`)
-                let protocol = `${window.location.hostname}` === '127.0.0.1' ? 'https:': `${window.location.protocol}`
+                const userInfo = base64Encode(`{"user": "${this.userItem.Username}", "pass": "${base64Decode(this.userItem.Password)}"}`)
+                const protocol = `${window.location.hostname}` === '127.0.0.1' ? 'https:' : `${window.location.protocol}`
                 this.shareLink = `${protocol}//${this.domain}:${this.port}/trojan/user/subscribe?token=${userInfo}`
             }
-            this.$nextTick(() => {
-                // eslint-disable-next-line
-                new QRCode(this.$refs.qrcode, {
-                    width: 200,
-                    height: 200,
-                    text: this.shareLink
-                }) 
-            })
             this.qrcodeVisible = true
+            this.$nextTick(() => {
+                this.drawQR()
+            })
+        },
+        onShareNodeChange() {
+            const node = this.shareNodeList.find(n => n.id === this.shareNodeId)
+            if (!node) {
+                return
+            }
+            this.shareLink = this.trojanURL(node)
+            this.drawQR()
+        },
+        drawQR() {
+            if (!this.$refs.qrcode || !this.shareLink) {
+                return
+            }
+            this.$refs.qrcode.innerHTML = ''
+            // eslint-disable-next-line
+            new QRCode(this.$refs.qrcode, {
+                width: 200,
+                height: 200,
+                text: this.shareLink
+            })
+        },
+        trojanURL(node) {
+            const pass = encodeURIComponent(base64Decode(this.userItem.Password))
+            const server = node.server
+            const port = node.port
+            const sni = node.sni || server
+            const name = encodeURIComponent(node.name || `${server}:${port}`)
+            let link = `trojan://${pass}@${server}:${port}`
+            if (sni && sni !== server) {
+                link += `?sni=${encodeURIComponent(sni)}`
+            }
+            return `${link}#${name}`
+        },
+        nodesOf(row) {
+            if (!row) {
+                return []
+            }
+            let ids = row.NodeIDs
+            if (!ids || ids.length === 0) {
+                ids = this.nodes.filter(n => n.local).map(n => n.id)
+            }
+            const list = this.nodes.filter(n => ids.indexOf(n.id) !== -1)
+            if (list.length > 0) {
+                return list
+            }
+            if (this.domain) {
+                return [{ id: 'local', name: `${this.domain}:${this.port}`, server: this.domain, port: this.port, sni: this.domain, local: true }]
+            }
+            return []
+        },
+        defaultNodeIds() {
+            const local = this.nodes.find(n => n.local)
+            if (local) {
+                return [local.id]
+            }
+            return this.nodes.length ? [this.nodes[0].id] : []
+        },
+        openAddUser() {
+            this.commonType = 2
+            this.userInfo.username = ''
+            this.userInfo.password = ''
+            this.userInfo.nodeIds = this.defaultNodeIds()
+            this.userVisible = true
+        },
+        showSyncResult(result) {
+            const sync = result && result.Data && result.Data.sync
+            if (!Array.isArray(sync)) {
+                return
+            }
+            const failed = sync.filter(item => !item.ok)
+            if (failed.length === 0) {
+                return
+            }
+            this.$message.warning(failed.map(item => `${item.name}: ${item.msg}`).join('；'))
+        },
+        copyText(text) {
+            if (!text) {
+                return
+            }
+            const done = () => this.$message({ message: this.$t('download.copySuccess'), type: 'success' })
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(() => {})
+            } else {
+                const input = document.createElement('textarea')
+                input.value = text
+                document.body.appendChild(input)
+                input.select()
+                document.execCommand('copy')
+                document.body.removeChild(input)
+                done()
+            }
+        },
+        toNodePayload(node, plainPassword) {
+            const payload = {
+                id: node.id || '',
+                name: (node.name || '').trim(),
+                server: (node.server || '').trim(),
+                port: Number(node.port) || 0,
+                sni: (node.sni || '').trim(),
+                panelUrl: (node.panelUrl || '').trim(),
+                adminPass: '',
+                local: !!node.local
+            }
+            if (plainPassword) {
+                payload.adminPass = CryptoJS.SHA224(plainPassword).toString()
+            }
+            return payload
+        },
+        openNodeEdit(row) {
+            if (row) {
+                this.nodeForm = {
+                    id: row.id,
+                    name: row.name,
+                    server: row.server,
+                    port: row.port,
+                    sni: row.sni || '',
+                    panelUrl: row.panelUrl || '',
+                    adminPass: '',
+                    local: !!row.local,
+                    hasPassword: !!row.hasPassword
+                }
+            } else {
+                this.nodeForm = {
+                    id: '',
+                    name: '',
+                    server: '',
+                    port: 443,
+                    sni: '',
+                    panelUrl: '',
+                    adminPass: '',
+                    local: false,
+                    hasPassword: false
+                }
+            }
+            this.nodeVisible = true
+        },
+        async removeNode(row) {
+            try {
+                await ElMessageBox.confirm(this.$t('node.removeConfirm'), this.$t('delete'), { type: 'warning' })
+            } catch (e) {
+                return
+            }
+            const next = this.nodes.filter(n => n.id !== row.id).map(n => this.toNodePayload(n, ''))
+            await this.submitNodes(next)
+        },
+        async saveNodeForm() {
+            const form = this.nodeForm
+            if (!form.name || !form.name.trim()) {
+                this.$message.error(this.$t('node.nameRequired'))
+                return
+            }
+            if (!form.local) {
+                if (!form.server || !form.port) {
+                    this.$message.error(this.$t('node.serverRequired'))
+                    return
+                }
+                if (!form.panelUrl) {
+                    this.$message.error(this.$t('node.panelRequired'))
+                    return
+                }
+                if (!form.hasPassword && !form.adminPass) {
+                    this.$message.error(this.$t('node.passRequired'))
+                    return
+                }
+            }
+            const next = this.nodes.map(n => {
+                if (form.id && n.id === form.id) {
+                    return this.toNodePayload(Object.assign({}, n, form), form.adminPass)
+                }
+                return this.toNodePayload(n, '')
+            })
+            if (!form.id) {
+                next.push(this.toNodePayload(form, form.adminPass))
+            }
+            await this.submitNodes(next)
+        },
+        async submitNodes(nodes) {
+            this.nodeSaving = true
+            try {
+                const result = await saveNodes({ nodes })
+                if (result && result.Msg === 'success') {
+                    this.$message({ message: this.$t('node.saveSuccess'), type: 'success' })
+                    this.showSyncResult(result)
+                    this.nodeVisible = false
+                    if (result.Data && Array.isArray(result.Data.nodes)) {
+                        this.nodes = result.Data.nodes
+                    }
+                    this.getUserList()
+                } else if (result) {
+                    this.$message.error(result.Msg || this.$t('request.requestError'))
+                }
+            } catch (e) {
+                // 连接失败时请求拦截器已提示
+            } finally {
+                this.nodeSaving = false
+            }
         },
         handleClash() {
             let userInfo = base64Encode(`{"user": "${this.userItem.Username}", "pass": "${base64Decode(this.userItem.Password)}"}`)
@@ -438,6 +748,8 @@ export default {
         handelEditUser() {
             this.userInfo.username = this.userItem.Username
             this.userInfo.password = base64Decode(this.userItem.Password)
+            const ids = this.userItem.NodeIDs
+            this.userInfo.nodeIds = ids && ids.length ? ids.slice() : this.defaultNodeIds()
             this.commonType = 3
             this.userVisible = true
         },
@@ -595,10 +907,18 @@ export default {
                 this.$message.error(this.$t('user.passLimit'))
                 return
             }
+            if (this.isAdmin) {
+                if (this.userInfo.nodeIds.length === 0) {
+                    this.$message.error(this.$t('node.selectOne'))
+                    return
+                }
+                formData.set('nodes', this.userInfo.nodeIds.join(','))
+            }
             const result = await updateUser(formData)
             this.userVisible = false
             this.refresh()
             if (result.Msg === 'success') {
+                this.showSyncResult(result)
                 this.$message({
                     message: `${this.$t('user.modifyUser2')}${this.userInfo.username}${this.$t('user.success')}`,
                     type: 'success'
@@ -622,6 +942,10 @@ export default {
                 this.$message.error(this.$t('user.limitAdmin'))
                 return
             }
+            if (this.isAdmin && this.userInfo.nodeIds.length === 0) {
+                this.$message.error(this.$t('node.selectOne'))
+                return
+            }
             const formData = new FormData()
             formData.set('username', this.userInfo.username)
             try {
@@ -630,8 +954,12 @@ export default {
                 this.$message.error(this.$t('user.passLimit'))
                 return
             }
+            if (this.isAdmin) {
+                formData.set('nodes', this.userInfo.nodeIds.join(','))
+            }
             const result = await addUser(formData)
             if (result.Msg === 'success') {
+                this.showSyncResult(result)
                 this.$message({
                     message: `${this.$t('user.addUser2')}${this.userInfo.username}${this.$t('user.success')}`,
                     type: 'success'
@@ -676,6 +1004,12 @@ export default {
                         }
                     }
                 }
+                this.nodes = (result.Data.nodes || []).map((n) => {
+                    if (n.local && !n.server && this.domain) {
+                        return Object.assign({}, n, { server: this.domain, port: this.port || n.port, sni: this.domain })
+                    }
+                    return n
+                })
             } else {
                 this.$message.error(result.Msg)
             }
@@ -724,5 +1058,47 @@ export default {
     font-size: 12px;
     color: #909399;
     margin-bottom: 8px;
+}
+.node-card {
+    margin-bottom: 12px;
+}
+.node-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+.node-tag {
+    margin: 2px;
+}
+.node-mine {
+    margin-bottom: 12px;
+}
+.node-assign {
+    margin-top: 12px;
+}
+.node-assign-label {
+    margin-bottom: 6px;
+}
+.node-tip {
+    color: #909399;
+    font-size: 12px;
+    line-height: 1.5;
+    margin-top: 8px;
+}
+.share-switch {
+    margin-bottom: 12px;
+}
+.share-actions {
+    text-align: center;
+    margin-top: 8px;
+}
+.share-nodes {
+    margin-top: 12px;
+}
+.share-node-line {
+    font-size: 13px;
+    line-height: 1.6;
 }
 </style>

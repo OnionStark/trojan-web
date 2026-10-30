@@ -5,15 +5,15 @@ export function userList() {
 }
 
 export function addUser(data) {
-    return request.post('/trojan/user', data)
+    return request.post('/trojan/user', data, { timeout: 120000 })
 }
 
 export function updateUser(data) {
-    return request.post('/trojan/user/update', data)
+    return request.post('/trojan/user/update', data, { timeout: 120000 })
 }
 
 export function delUser(id) {
-    return request.delete(`/trojan/user?id=${id}`)
+    return request.delete(`/trojan/user?id=${id}`, { timeout: 120000 })
 }
 
 export function setExpire(data) {

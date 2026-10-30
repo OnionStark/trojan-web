@@ -28,6 +28,10 @@ export function setDomain(data) {
     return request.post('/trojan/domain', data)
 }
 
+export function saveNodes(data) {
+    return request.post('/trojan/nodes', data, { timeout: 120000 })
+}
+
 export function trojanSwitch(data) {
     return request.post('/trojan/switch', data)
 }
